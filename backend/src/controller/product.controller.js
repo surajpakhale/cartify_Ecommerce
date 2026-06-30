@@ -1,5 +1,6 @@
 const productModel = require("../models/product.model")
-const cloudinary= require("../config/cloudinary")
+const cloudinary = require("../config/cloudinary")
+const streamifier = require('streamifier'); // Ye install karna padega
 
 async function getProduct(req,res){
     try{
@@ -8,61 +9,75 @@ async function getProduct(req,res){
             message:"Products fetch sucessfully..",
             products
         })
-
     }catch(error){
         console.log("message is :",error)
+        res.status(500).json({ message: "Server error", error })
     }
-
 }
+
 async function getProductById(req,res){
     try{
-        const projectId = await productModel.findById(req.params.id);
-        if(projectId){
-            res.status(200).json(projectId)
+        const product = await productModel.findById(req.params.id);
+        if(product){
+            res.status(200).json(product)
         }else{
-            res.status(500).json({
+            res.status(404).json({
                 message :"Product not found...."
             })
         }
-
     }catch(error){
         console.log("Message project Id is ", error)
+        res.status(500).json({ message: "Server error", error })
     }
 }
 
+// Cloudinary upload helper for buffer
+const uploadToCloudinary = (fileBuffer) => {
+    return new Promise((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+            { folder: "products" },
+            (error, result) => {
+                if (error) reject(error);
+                else resolve(result);
+            }
+        );
+        streamifier.createReadStream(fileBuffer).pipe(uploadStream);
+    });
+};
+
 async function createProduct(req,res){
     try{
-        const {name , description , price , category , stock}=req.body;
-    let imageUrl = "";
-    if(req.file){
-        const result = await cloudinary.uploader.upload(req.file.path);
-        imageUrl=result.secure_url;
-    }
-    const product = new productModel({
-        name,
-        description,
-        price,
-        category,
-        stock,
-        imageUrl
-    
-    })
-    const savedProduct = await product.save();
-    res.status(201).json(savedProduct);
+        const {name , description , price , category , stock} = req.body;
+        let imageUrl = "";
+        
+        // Purana: req.file.path ❌
+        // Naya: req.file.buffer ✅
+        if(req.file){
+            const result = await uploadToCloudinary(req.file.buffer);
+            imageUrl = result.secure_url;
+        }
+        
+        const product = new productModel({
+            name,
+            description,
+            price,
+            category,
+            stock,
+            imageUrl
+        })
+        const savedProduct = await product.save();
+        res.status(201).json(savedProduct);
     }catch(error){
         console.log(error);
         res.status(500).json({
-            message:"Server error",error
+            message:"Server error", error: error.message
         })
     }
-
 }
 
 async function updateProduct(req, res) {
     try {
         const { name, description, price, category, stock } = req.body;
-        
-       
         const product = await productModel.findById(req.params.id);
         
         if (!product) {
@@ -77,8 +92,10 @@ async function updateProduct(req, res) {
         product.category = category || product.category;
         product.stock = stock || product.stock;
 
+        // Purana: req.file.path ❌
+        // Naya: req.file.buffer ✅
         if (req.file) {
-            const result = await cloudinary.uploader.upload(req.file.path);
+            const result = await uploadToCloudinary(req.file.buffer);
             product.imageUrl = result.secure_url; 
         }
         
@@ -88,17 +105,14 @@ async function updateProduct(req, res) {
     } catch (error) {
         console.log(error);
         res.status(500).json({
-            message: "Server error"
+            message: "Server error", error: error.message
         });
     }
 } 
 
-
-
 async function deleteProduct (req, res){
     try{
         const product = await productModel.findById(req.params.id);
-
         if(product){
             await product.deleteOne();
             res.status(200).json({
@@ -106,13 +120,13 @@ async function deleteProduct (req, res){
             })
         }else{
             res.status(404).json({
-                message:"server error"
+                message:"Product not found"
             })
-
         }
     }catch(error){
         console.log('Message is ', error);
-        
+        res.status(500).json({ message: "Server error", error: error.message })
     }
 }
+
 module.exports = {getProduct , getProductById ,createProduct, updateProduct , deleteProduct}
