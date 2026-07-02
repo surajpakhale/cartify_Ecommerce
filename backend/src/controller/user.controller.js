@@ -51,45 +51,7 @@ async function registerUser(req,res){
   })
 }
 
-// async function loginUser(req,res){
-//     const{ name ,email , password } = req.body;
 
-//     const user = await userModel.findOne({
-//         $or:[
-//             {name},
-//             {email}
-
-//         ]
-        
-//     })
-//     if(!user){
-//         return res.status(406).json({
-//             message:"Invalid Credientials"
-//         })
-//     }
-
-//     const isPasswordValid = await bcrypt.compare(password ,user.password);
-
-//     if(!isPasswordValid){
-//         return res.status(406).json({
-//             message:"unauthorized"
-//         })
-//     }
-//     const token = jwt.sign({id:user._id,role:user.role},process.env.JWT_SECRET)
-
-//     res.cookie("token",token)
-//     res.status(200).json({
-//         message:"Login user Sucessfully",
-//         user:{
-//             id:user._id,
-//             name:user.name,
-//             email:user.email,
-//             role:user.role
-//         }
-//     })
-
-
-// }
 async function loginUser(req, res) {
     const { email, password } = req.body; // ← name hata de, login email se hi hoga
 
