@@ -1,6 +1,8 @@
 const Razorpay = require("razorpay");
 const crypto = require("crypto");
 const orderModel = require("../models/order.model");
+const sendEmail = require("../utils/sendEmail");
+const userModel = require("../models/user.model");
 
 const razorpay = new Razorpay({
     key_id: process.env.RAZORPAY_KEY_ID,
@@ -117,6 +119,51 @@ async function verifyPayment(req, res) {
         });
 
         await newOrder.save();
+
+        // ✅ Fetch user details to send email
+        const userDetails = await userModel.findById(req.user._id);
+        
+        // ✅ Send order confirmation email
+        try {
+            const itemsList = orderData.items.map(item => 
+                `- Product ID: ${item.product}, Quantity: ${item.quantity}, Price: ₹${item.price}`
+            ).join('\n');
+            
+            const emailMessage = `
+Dear ${userDetails?.name || 'Customer'},
+
+Thank you for your order! 🎉
+
+Order Details:
+Order ID: ${newOrder._id}
+Total Amount: ₹${orderData.totalAmount}
+Payment Status: ${isSignatureValid ? 'Paid' : 'Pending'}
+
+Items Ordered:
+${itemsList}
+
+Shipping Address:
+${orderData.address.fullname}
+${orderData.address.street}
+${orderData.address.city}, ${orderData.address.postalCode}
+${orderData.address.country}
+
+Your order will be processed soon and you'll receive a tracking number via email.
+
+Best regards,
+Cartify E-Commerce Team
+            `;
+            
+            await sendEmail(
+                userDetails?.email || req.user.email,
+                "Order Confirmation - Your Order Has Been Received",
+                emailMessage
+            );
+            console.log("✅ Order confirmation email sent to:", userDetails?.email);
+        } catch (emailError) {
+            console.log("⚠️ Email sending failed:", emailError.message);
+            // Don't fail the order if email fails
+        }
 
         // ✅ Always return success for test environment
         return res.status(200).json({
