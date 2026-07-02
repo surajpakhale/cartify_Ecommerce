@@ -97,7 +97,8 @@ const Checkout = () => {
             if (verifyRes.data.success) {
               alert("Payment Successful");
               dispatch(clearCart());
-              navigate('/ordersuccess');
+              const orderId = verifyRes.data.order?._id;
+              navigate('/ordersuccess', { state: { orderId } });
             }
           } catch (error) {
             alert("Payment verification failed");
@@ -139,14 +140,16 @@ const Checkout = () => {
           if (verifyRes.data.success) {
             alert("Order Created Successfully");
             dispatch(clearCart());
-            navigate('/ordersuccess');
+            const orderId = verifyRes.data.order?._id;
+            navigate('/ordersuccess', { state: { orderId } });
           }
         } catch (error) {
           console.log('Payment failed handler error:', error);
           // ✅ Even if verification fails, show success to user
           alert("Order Created in Test Mode");
           dispatch(clearCart());
-          navigate('/ordersuccess');
+          const orderId = verifyRes.data.order?._id;
+          navigate('/ordersuccess', { state: { orderId } });
         }
         setLoading(false);
       });
@@ -172,14 +175,15 @@ const Checkout = () => {
         if (verifyRes.data.success) {
           alert("Order Created Successfully");
           dispatch(clearCart());
-          navigate('/ordersuccess');
+          const orderId = verifyRes.data.order?._id;
+          navigate('/ordersuccess', { state: { orderId } });
         }
       } catch (verifyError) {
         console.log('Verification error:', verifyError);
         // ✅ Still proceed to success page
         alert("Order Created in Test Mode");
         dispatch(clearCart());
-        navigate('/ordersuccess');
+        navigate('/ordersuccess', { state: { orderId: 'test-order' } });
       }
       setLoading(false);
     }

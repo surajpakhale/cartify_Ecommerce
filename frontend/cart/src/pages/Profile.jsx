@@ -8,6 +8,7 @@ const Profile = () => {
   const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [downloadingId, setDownloadingId] = useState(null);
 
   useEffect(() => {
     if (!user) {
@@ -38,6 +39,35 @@ const Profile = () => {
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const handleDownloadInvoice = async (orderId) => {
+    try {
+      setDownloadingId(orderId);
+      console.log("📥 Downloading invoice for order:", orderId);
+      
+      const response = await api.get(`/orders/invoice/${orderId}`, {
+        headers: { Authorization: `Bearer ${user.token}` },
+        responseType: 'blob'
+      });
+
+      // Create a URL for the blob and trigger download
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `invoice_${orderId}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      console.log("✅ Invoice downloaded successfully");
+    } catch (error) {
+      console.error("❌ Error downloading invoice:", error);
+      alert("Failed to download invoice. Please try again.");
+    } finally {
+      setDownloadingId(null);
+    }
   };
 
   const containerStyle = { maxWidth: '1000px', margin: '40px auto', padding: '30px', background: '#18181b', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', color: '#fafafa' };
@@ -74,7 +104,7 @@ const Profile = () => {
                 <p style={{ color: '#a1a1aa', fontSize: '0.9rem', marginBottom: '5px' }}>Placed On: <span style={{ color: '#fff' }}>{new Date(order.createdAt).toLocaleDateString()}</span></p>
                 <p style={{ color: '#a1a1aa', fontSize: '0.9rem' }}>Total: <strong style={{ color: '#10b981' }}>₹{order.totalAmount.toFixed(2)}</strong></p>
               </div>
-              <div>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
                 <span style={{ 
                   background: order.status === 'Delivered' ? 'rgba(16,185,129,0.1)' : order.status === 'Shipped' ? 'rgba(59,130,246,0.1)' : 'rgba(245,158,11,0.1)', 
                   color: order.status === 'Delivered' ? '#10b981' : order.status === 'Shipped' ? '#3b82f6' : '#f59e0b',
@@ -82,6 +112,23 @@ const Profile = () => {
                 }}>
                   {order.status}
                 </span>
+                <button 
+                  onClick={() => handleDownloadInvoice(order._id)}
+                  disabled={downloadingId === order._id}
+                  style={{
+                    background: '#3b82f6',
+                    color: '#fff',
+                    border: 'none',
+                    padding: '8px 16px',
+                    borderRadius: '6px',
+                    cursor: downloadingId === order._id ? 'not-allowed' : 'pointer',
+                    opacity: downloadingId === order._id ? 0.6 : 1,
+                    fontSize: '0.9rem',
+                    fontWeight: '500'
+                  }}
+                >
+                  {downloadingId === order._id ? '📥 Downloading...' : '📄 Invoice'}
+                </button>
               </div>
             </div>
           ))}
