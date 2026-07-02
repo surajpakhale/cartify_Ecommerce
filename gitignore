@@ -3,6 +3,7 @@
 .env.local
 .env.development.local
 .env.production.local
+.env.test.local
 
 # Dependencies
 node_modules/
@@ -27,5 +28,9 @@ Thumbs.db
 .vscode/
 .idea/
 
-# Package lock - optional, rakhe to rakhe
-# package-lock.json
+# Uploads folder - Ye add kar
+uploads/
+backend/uploads/
+
+# Vercel
+.vercel
