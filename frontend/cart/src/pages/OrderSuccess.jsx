@@ -8,10 +8,11 @@ const OrderSuccess = () => {
   const { user } = useContext(AuthContext);
   const orderId = location.state?.orderId;
   const [downloading, setDownloading] = useState(false);
+  const [invoiceDownloaded, setInvoiceDownloaded] = useState(false);
 
   const downloadInvoice = async () => {
     if (!orderId) {
-      alert('Order ID not found. Please try again.');
+      alert('Order ID not found. Please check your profile.');
       return;
     }
 
@@ -34,6 +35,7 @@ const OrderSuccess = () => {
       link.parentNode.removeChild(link);
       window.URL.revokeObjectURL(url);
       
+      setInvoiceDownloaded(true);
       console.log("✅ Invoice downloaded successfully");
     } catch (error) {
       console.error("❌ Error downloading invoice:", error);
@@ -55,15 +57,15 @@ const OrderSuccess = () => {
 
   // Auto-download invoice when page loads with orderId
   React.useEffect(() => {
-    if (orderId && user?.token) {
+    if (orderId && user?.token && !invoiceDownloaded) {
       console.log("📄 Order Success - Order ID:", orderId);
       // Auto download after a short delay to ensure page is ready
       const timer = setTimeout(() => {
         downloadInvoice();
-      }, 500);
+      }, 1000);
       return () => clearTimeout(timer);
     }
-  }, [orderId, user?.token]);
+  }, [orderId, user?.token, invoiceDownloaded]);
 
   return (
     <div style={containerStyle}>
@@ -72,38 +74,49 @@ const OrderSuccess = () => {
         Thank you for your order. We have securely received your payment and will process your shipment shortly.
       </p>
       {orderId && (
-        <p style={{ color: '#f97316', fontSize: '0.95rem', marginBottom: '30px' }}>
+        <p style={{ color: '#f97316', fontSize: '0.95rem', marginBottom: '15px' }}>
           Order ID: <strong>{orderId.substring(0, 8).toUpperCase()}</strong>
+        </p>
+      )}
+      {invoiceDownloaded && (
+        <p style={{ color: '#10b981', fontSize: '0.9rem', marginBottom: '20px' }}>
+          ✅ Invoice is being downloaded...
         </p>
       )}
       
       <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '20px' }}>
-        {orderId && (
-          <button 
-            onClick={downloadInvoice}
-            disabled={downloading}
-            style={{
-              background: '#3b82f6',
-              color: '#fff',
-              border: 'none',
-              padding: '12px 24px',
-              borderRadius: '8px',
-              cursor: downloading ? 'not-allowed' : 'pointer',
-              opacity: downloading ? 0.6 : 1,
-              fontSize: '1rem',
-              fontWeight: 'bold'
-            }}
-          >
-            {downloading ? '📥 Downloading Invoice...' : '📄 Download Invoice'}
-          </button>
+        {orderId ? (
+          <>
+            <button 
+              onClick={downloadInvoice}
+              disabled={downloading}
+              style={{
+                background: '#3b82f6',
+                color: '#fff',
+                border: 'none',
+                padding: '12px 24px',
+                borderRadius: '8px',
+                cursor: downloading ? 'not-allowed' : 'pointer',
+                opacity: downloading ? 0.6 : 1,
+                fontSize: '1rem',
+                fontWeight: 'bold'
+              }}
+            >
+              {downloading ? '📥 Downloading...' : '📄 Invoice'}
+            </button>
+            <Link to="/shop" className="btn" style={{ textDecoration: 'none', display: 'inline-block', background: '#10b981', padding: '12px 24px', borderRadius: '8px', fontSize: '1rem', fontWeight: 'bold' }}>
+              Continue Shopping
+            </Link>
+          </>
+        ) : (
+          <Link to="/shop" className="btn" style={{ textDecoration: 'none', display: 'inline-block', background: '#10b981' }}>
+            Continue Shopping
+          </Link>
         )}
-        <Link to="/shop" className="btn" style={{ textDecoration: 'none', display: 'inline-block', background: '#10b981' }}>
-          Continue Shopping
-        </Link>
       </div>
       
       <p style={{ color: '#a1a1aa', fontSize: '0.9rem', marginTop: '20px' }}>
-        Check your <Link to="/profile" style={{ color: '#f97316', textDecoration: 'none' }}>Profile</Link> to view all orders and download invoices anytime.
+        📌 Go to your <Link to="/profile" style={{ color: '#f97316', textDecoration: 'none', fontWeight: 'bold' }}>Profile</Link> to download invoices anytime.
       </p>
     </div>
   );

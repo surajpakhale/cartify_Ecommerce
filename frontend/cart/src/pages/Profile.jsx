@@ -21,7 +21,14 @@ const Profile = () => {
           headers: { Authorization: `Bearer ${user.token}` }
         });
         const data = res.data;
-        setOrders(Array.isArray(data) ? data : []);
+        // Check if data is orders array or has orders property
+        if (Array.isArray(data)) {
+          setOrders(data);
+        } else if (data.orders && Array.isArray(data.orders)) {
+          setOrders(data.orders);
+        } else {
+          setOrders([]);
+        }
       } catch (error) {
         console.error(error);
         if (error.response?.status === 401) {
