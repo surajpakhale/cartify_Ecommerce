@@ -197,26 +197,35 @@ async function downloadInvoice(req, res) {
             .populate('user', 'name email');
 
         if (!order) {
+            console.log("❌ Order not found");
             return res.status(404).json({
                 success: false,
                 message: "Order not found"
             });
         }
 
+        console.log("✅ Order fetched:", {
+            id: order._id,
+            itemsCount: order.items?.length,
+            totalAmount: order.totalAmount
+        });
+
         // ✅ Verify user owns this order
         if (order.user._id.toString() !== req.user._id.toString()) {
+            console.log("❌ Unauthorized - User mismatch");
             return res.status(403).json({
                 success: false,
                 message: "Unauthorized to download this invoice"
             });
         }
 
-        console.log("✅ Order found, generating PDF...");
+        console.log("✅ Authorization passed, generating PDF...");
 
         // ✅ Generate PDF
         const pdfResult = await generateInvoicePDF(order, order.user);
 
         if (!pdfResult.success) {
+            console.log("❌ PDF generation failed");
             return res.status(500).json({
                 success: false,
                 message: "Failed to generate invoice"
@@ -224,14 +233,18 @@ async function downloadInvoice(req, res) {
         }
 
         const filePath = pdfResult.filePath;
+        console.log("✅ PDF generated at:", filePath);
 
         // ✅ Check if file exists
         if (!fs.existsSync(filePath)) {
+            console.log("❌ PDF file does not exist at:", filePath);
             return res.status(500).json({
                 success: false,
                 message: "Invoice file not found"
             });
         }
+
+        console.log("✅ PDF file verified, sending to user...");
 
         // ✅ Set response headers for file download
         res.setHeader('Content-Type', 'application/pdf');
@@ -254,17 +267,20 @@ async function downloadInvoice(req, res) {
 
         fileStream.on('error', (err) => {
             console.log("❌ Stream error:", err.message);
-            res.status(500).json({
-                success: false,
-                message: "Error downloading invoice"
-            });
+            if (!res.headersSent) {
+                res.status(500).json({
+                    success: false,
+                    message: "Error downloading invoice"
+                });
+            }
         });
 
     } catch (error) {
         console.log("❌ Download invoice error:", error.message);
+        console.log("Stack:", error.stack);
         res.status(500).json({
             success: false,
-            message: "Server error",
+            message: "Server error: " + error.message,
             error: error.message
         });
     }

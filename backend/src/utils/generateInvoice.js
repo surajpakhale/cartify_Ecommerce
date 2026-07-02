@@ -70,18 +70,25 @@ async function generateInvoicePDF(order, userDetails) {
             doc.fontSize(9).font('Helvetica').fillColor('#333333');
             let itemY = startY + 30;
 
+            console.log("📦 Processing items for invoice:");
             (order.items || []).forEach((item, index) => {
-                const productName = item.product?.name || item.productName || 'Product';
-                const quantity = item.quantity || 0;
-                const price = item.price || 0;
-                const total = quantity * price;
+                try {
+                    const productName = item.product?.name || item.productName || 'Product';
+                    const quantity = item.quantity || 0;
+                    const price = item.price || 0;
+                    const total = quantity * price;
 
-                doc.text(productName.substring(0, 20), startX, itemY);
-                doc.text(quantity.toString(), startX + columnWidth, itemY);
-                doc.text(`₹${price.toFixed(2)}`, startX + columnWidth * 2, itemY);
-                doc.text(`₹${total.toFixed(2)}`, startX + columnWidth * 3, itemY);
+                    console.log(`  Item ${index + 1}: ${productName}, Qty: ${quantity}, Price: ₹${price}`);
 
-                itemY += rowHeight;
+                    doc.text(productName.substring(0, 20), startX, itemY);
+                    doc.text(quantity.toString(), startX + columnWidth, itemY);
+                    doc.text(`₹${price.toFixed(2)}`, startX + columnWidth * 2, itemY);
+                    doc.text(`₹${total.toFixed(2)}`, startX + columnWidth * 3, itemY);
+
+                    itemY += rowHeight;
+                } catch (itemError) {
+                    console.log(`⚠️  Error processing item ${index}:`, itemError.message);
+                }
             });
 
             // Horizontal line before totals
