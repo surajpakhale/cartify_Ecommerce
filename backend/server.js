@@ -18,13 +18,9 @@ app.use(cors({
   origin: [
     'http://localhost:5173',
     'http://localhost:3000',
-    'https://cartify-ecommerce-silk.vercel.app',
-    'https://cartify-ecommerce-573wg5jfg-suraj-pakhales-projects.vercel.app',
-    'https://cartify-ecommerce-ket4-drab.vercel.app'  // Ye line add kar
+    'https://cartify-ecommerce-ket4-drab.vercel.app' // Tera current frontend URL
   ],
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  credentials: true
 }));
 
 app.use(express.json())
