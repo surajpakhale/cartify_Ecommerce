@@ -3,59 +3,47 @@ const nodemailer = require("nodemailer");
 const sendEmail = async (to, subject, text) => {
     try {
         console.log("\n========== EMAIL SENDING DEBUG ==========");
-        console.log("📧 Email Config Check:");
-        console.log("   EMAIL_USER:", process.env.EMAIL_USER ? "✅ Set" : "❌ Not Set");
-        console.log("   EMAIL_PASS:", process.env.EMAIL_PASS ? "✅ Set" : "❌ Not Set");
-        console.log("   Recipient:", to);
-        console.log("   Subject:", subject);
+        console.log("📧 Recipient:", to);
+        console.log("📧 Subject:", subject);
         
         if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
             console.log("❌ EMAIL_USER or EMAIL_PASS not configured in .env");
-            throw new Error("Email credentials not configured");
+            return false;
         }
 
-        console.log("\n🔧 Creating Nodemailer Transporter...");
+        console.log("🔧 Creating Nodemailer Transporter...");
+        console.log("   Service: Gmail");
+        console.log("   From: " + process.env.EMAIL_USER);
+        
         const transporter = nodemailer.createTransport({
             service: 'gmail',
             auth: {
                 user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASS.trim()  // ✅ Trim spaces from password
+                pass: process.env.EMAIL_PASS
             }
         });
 
-        // ✅ Verify connection
-        console.log("✔️ Testing email connection...");
-        await transporter.verify();
-        console.log("✅ Email connection verified!");
-        
         const mailOptions = {
-            from: `Cartify <${process.env.EMAIL_USER}>`,
-            to: to.trim(),  // ✅ Trim recipient email
+            from: process.env.EMAIL_USER,
+            to: to,
             subject: subject,
-            html: text,  // ✅ Send as HTML
-            text: text
+            html: text
         };
         
-        console.log("\n📬 Sending email with options:");
-        console.log("   From:", mailOptions.from);
-        console.log("   To:", mailOptions.to);
-        console.log("   Subject:", mailOptions.subject);
-        console.log("   Content Length:", text.length);
-        
+        console.log("📤 Sending email...");
         const info = await transporter.sendMail(mailOptions);
-        console.log("\n✅ EMAIL SENT SUCCESSFULLY!");
+        
+        console.log("✅ EMAIL SENT SUCCESSFULLY!");
         console.log("   Message ID:", info.messageId);
-        console.log("   Response:", info.response);
         console.log("==========================================\n");
-        return info;
+        return true;
         
     } catch (error) {
         console.log("\n❌ EMAIL SENDING FAILED!");
         console.log("   Error Code:", error.code);
         console.log("   Error Message:", error.message);
-        console.log("   Error Details:", error.response || error);
         console.log("==========================================\n");
-        throw error;  // ✅ Throw error so caller knows it failed
+        return false;
     }
 }
 

@@ -79,15 +79,20 @@ async function sendOrderConfirmationEmail(newOrder, userDetails, orderData) {
         `;
         
         console.log("📤 Attempting email send...");
-        await sendEmail(
+        const emailResult = await sendEmail(
             userDetails.email,
             "Order Confirmation - Your Order Has Been Received",
             emailMessage
         );
         
-        console.log("✅ Order confirmation email sent successfully!");
+        if (emailResult) {
+            console.log("✅ Order confirmation email sent successfully!");
+        } else {
+            console.log("⚠️ Email sending returned false but no error thrown");
+        }
+        
         console.log("📧 === EMAIL SENDING COMPLETE ===\n");
-        return true;
+        return emailResult;
 
     } catch (error) {
         console.log("❌ Email sending error:", error.message);
@@ -178,20 +183,17 @@ async function verifyPayment(req, res) {
             console.log("⚠️ Could not fetch user details:", userErr.message);
         }
 
-        // ✅ Send success response immediately
-        res.status(200).json({
+        // ✅ Send email BEFORE responding
+        console.log("\n📧 Preparing to send email...");
+        const emailSent = await sendOrderConfirmationEmail(newOrder, userDetails, orderData);
+        console.log("Email sending result:", emailSent ? "✅ Success" : "⚠️ Failed");
+
+        // ✅ Send success response
+        return res.status(200).json({
             success: true,
             message: "Order Placed Successfully! Check your email for confirmation.",
-            order: newOrder
-        });
-
-        // ✅ Send email in background using process.nextTick (more reliable than setImmediate)
-        process.nextTick(async () => {
-            try {
-                await sendOrderConfirmationEmail(newOrder, userDetails, orderData);
-            } catch (bgError) {
-                console.log("❌ Background email task failed:", bgError.message);
-            }
+            order: newOrder,
+            emailSent: emailSent
         });
 
     } catch (error) {
