@@ -79,43 +79,30 @@ async function verifyPayment(req, res) {
         await newOrder.save();
         console.log("✅ Order saved successfully:", newOrder._id);
 
-        // ✅ ALWAYS return success immediately
-        const response = {
-            success: true,
-            message: "Order Placed Successfully! Check your email for confirmation.",
-            order: newOrder
-        };
+        // ✅ Immediately fetch user details for email
+        let userDetails = null;
+        try {
+            userDetails = await userModel.findById(req.user._id);
+            console.log("👤 User details fetched:", {
+                id: userDetails?._id,
+                name: userDetails?.name,
+                email: userDetails?.email
+            });
+        } catch (userErr) {
+            console.log("⚠️ Could not fetch user details:", userErr.message);
+        }
+        
+        const userEmail = userDetails?.email;
+        console.log("📧 Email recipient:", userEmail);
 
-        // ✅ Send email in background (don't wait for it)
-        (async () => {
-            try {
-                let userDetails = null;
-                try {
-                    userDetails = await userModel.findById(req.user._id);
-                    console.log("👤 User details fetched:", {
-                        id: userDetails?._id,
-                        name: userDetails?.name,
-                        email: userDetails?.email
-                    });
-                } catch (userErr) {
-                    console.log("⚠️ Could not fetch user details:", userErr.message);
-                }
-                
-                const userEmail = userDetails?.email;
-                console.log("📧 Will send email to:", userEmail);
-
-                if (!userEmail) {
-                    console.log("❌ ERROR: No email address found for user");
-                    return;
-                }
-                
-                const itemsList = items.length > 0 
-                    ? items.map(item => 
-                        `- Product ID: ${item.product}, Quantity: ${item.quantity}, Price: ₹${item.price}`
-                    ).join('\n')
-                    : 'No items specified';
-                
-                const emailMessage = `
+        // ✅ Prepare email content
+        const itemsList = items.length > 0 
+            ? items.map(item => 
+                `- Product ID: ${item.product}, Quantity: ${item.quantity}, Price: ₹${item.price}`
+            ).join('\n')
+            : 'No items specified';
+        
+        const emailMessage = `
 <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
     <h2 style="color: #4CAF50;">Order Confirmation 🎉</h2>
     
@@ -155,24 +142,43 @@ async function verifyPayment(req, res) {
         <strong>Cartify E-Commerce Team</strong>
     </p>
 </div>
-                `;
-                
-                console.log("📤 [Background] Attempting to send confirmation email to:", userEmail);
-                await sendEmail(
-                    userEmail,
-                    "Order Confirmation - Your Order Has Been Received",
-                    emailMessage
-                );
-                console.log("✅ [Background] Order confirmation email sent successfully to:", userEmail);
-            } catch (bgError) {
-                console.log("❌ [Background] Email sending failed!");
-                console.log("   Error Message:", bgError.message);
-                console.log("   Full Error:", bgError);
-            }
-        })();
+        `;
 
-        // ✅ Return response immediately
-        return res.status(200).json(response);
+        // ✅ Return success response immediately
+        res.status(200).json({
+            success: true,
+            message: "Order Placed Successfully! Check your email for confirmation.",
+            order: newOrder
+        });
+
+        // ✅ Send email AFTER response is sent (using setImmediate)
+        if (userEmail) {
+            setImmediate(async () => {
+                try {
+                    console.log("\n📤 [Background Task] Starting email send...");
+                    console.log("📧 Recipient:", userEmail);
+                    console.log("📧 Subject: Order Confirmation - Your Order Has Been Received");
+                    
+                    await sendEmail(
+                        userEmail,
+                        "Order Confirmation - Your Order Has Been Received",
+                        emailMessage
+                    );
+                    
+                    console.log("✅ [Background Task] Email sent successfully!\n");
+                } catch (emailError) {
+                    console.log("\n❌ [Background Task] Email sending FAILED!");
+                    console.log("Error:", emailError.message);
+                    console.log("Details:", emailError);
+                    console.log("But order was created successfully anyway!\n");
+                }
+            });
+        } else {
+            console.log("⚠️ [Background Task] Skipped - No email address found\n");
+        }
+
+        // ✅ Don't use return after res.json() when using setImmediate
+        return;
 
     } catch (error) {
         console.log("=== VERIFY PAYMENT ERROR ===");
