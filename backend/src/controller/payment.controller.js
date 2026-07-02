@@ -35,53 +35,7 @@ async function createRazorpayOrder(req, res) {
     }
 }
 
-// 2. Payment Verify - Signature check karke DB me save
-// async function verifyPayment(req, res) {
-//     try {
-//         const { 
-//             razorpay_order_id, 
-//             razorpay_payment_id, 
-//             razorpay_signature,
-//             orderData // ✅ frontend se order ka data: items, address, totalAmount
-//         } = req.body;
 
-//         const sign = razorpay_order_id + "|" + razorpay_payment_id;
-//         const expectedSign = crypto
-//             .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
-//             .update(sign.toString())
-//             .digest("hex");
-
-//         if (razorpay_signature === expectedSign) {
-//             // ✅ Payment verified, ab DB me order save kar
-//             const newOrder = new orderModel({
-//                 user: req.user._id,
-//                 items: orderData.items,
-//                 totalAmount: orderData.totalAmount,
-//                 address: orderData.address,
-//                 paymentId: razorpay_payment_id,
-//                 paymentOrderId: razorpay_order_id,
-//                 status: 'pending',
-//                 paymentStatus: 'paid'
-//             });
-
-//             await newOrder.save();
-
-//             return res.status(200).json({
-//                 success: true,
-//                 message: "Payment verified & Order created",
-//                 order: newOrder
-//             });
-//         } else {
-//             return res.status(400).json({
-//                 success: false,
-//                 message: "Invalid signature, payment verification failed"
-//             });
-//         }
-//     } catch (error) {
-//         console.log("Verify payment error:", error);
-//         res.status(500).json({ message: "Server error", error: error.message });
-//     }
-// }
 
 async function verifyPayment(req, res) {
     try {
@@ -92,9 +46,49 @@ async function verifyPayment(req, res) {
             orderData
         } = req.body;
 
+        // ✅ Validation check
+        if (!orderData || !orderData.items || !orderData.address) {
+            return res.status(400).json({
+                success: false,
+                message: "Missing order data",
+                details: "items and address are required"
+            });
+        }
+
+        // ✅ Check if address has all required fields
+        const { fullname, street, city, postalCode, country } = orderData.address;
+        if (!fullname || !street || !city || !postalCode || !country) {
+            return res.status(400).json({
+                success: false,
+                message: "Incomplete address",
+                details: "fullname, street, city, postalCode, and country are all required"
+            });
+        }
+
+        // ✅ Validate items array
+        if (!Array.isArray(orderData.items) || orderData.items.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid items",
+                details: "items must be a non-empty array"
+            });
+        }
+
+        // ✅ Check each item has required fields
+        for (let i = 0; i < orderData.items.length; i++) {
+            const item = orderData.items[i];
+            if (!item.product || !item.quantity || !item.price) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Item ${i + 1} is incomplete`,
+                    details: `Each item must have product, quantity, and price fields`
+                });
+            }
+        }
+
         console.log("=== VERIFY PAYMENT DEBUG ===");
-        console.log("OrderData:", JSON.stringify(orderData, null, 2)); // ✅ Ye add kar
-        console.log("User:", req.user._id); // ✅ Ye add kar
+        console.log("OrderData:", JSON.stringify(orderData, null, 2));
+        console.log("User:", req.user._id);
 
         const sign = razorpay_order_id + "|" + razorpay_payment_id;
         const expectedSign = crypto
@@ -115,7 +109,7 @@ async function verifyPayment(req, res) {
                 paymentStatus: 'paid'
             });
 
-            await newOrder.save(); // ❌ Yaha fail ho raha hai
+            await newOrder.save();
 
             return res.status(200).json({
                 success: true,
@@ -129,12 +123,23 @@ async function verifyPayment(req, res) {
             });
         }
     } catch (error) {
-        console.log("=== VERIFY PAYMENT ERROR ==="); // ✅ Ye add kar
-        console.log(error); // ✅ Full error print karega
+        console.log("=== VERIFY PAYMENT ERROR ===");
+        console.log("Error Message:", error.message);
+        console.log("Error Details:", error);
+        
+        // ✅ Handle Mongoose validation errors
+        let validationErrors = null;
+        if (error.errors) {
+            validationErrors = {};
+            for (let field in error.errors) {
+                validationErrors[field] = error.errors[field].message;
+            }
+        }
+
         res.status(500).json({ 
-            message: "Server error", 
-            error: error.message,
-            validationErrors: error.errors // ✅ Validation errors bhi bhejo
+            success: false,
+            message: error.message || "Server error during payment verification",
+            validationErrors: validationErrors
         });
     }
 }
