@@ -4,7 +4,7 @@ console.log('BUILD TIME API URL:', import.meta.env.VITE_API_URL);
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL, // Ye change kiya
-  withCredentials: true,
+  withCredentials: false,
   headers: {
     Accept: 'application/json'
   }
