@@ -105,7 +105,7 @@ async function verifyPayment(req, res) {
                 console.log("📧 Will send email to:", userEmail);
 
                 if (!userEmail) {
-                    console.log("⚠️ Warning: No email address found for user");
+                    console.log("❌ ERROR: No email address found for user");
                     return;
                 }
                 
@@ -157,7 +157,7 @@ async function verifyPayment(req, res) {
 </div>
                 `;
                 
-                console.log("📤 [Background] Attempting to send confirmation email...");
+                console.log("📤 [Background] Attempting to send confirmation email to:", userEmail);
                 await sendEmail(
                     userEmail,
                     "Order Confirmation - Your Order Has Been Received",
@@ -165,7 +165,9 @@ async function verifyPayment(req, res) {
                 );
                 console.log("✅ [Background] Order confirmation email sent successfully to:", userEmail);
             } catch (bgError) {
-                console.log("❌ [Background] Email sending error:", bgError.message);
+                console.log("❌ [Background] Email sending failed!");
+                console.log("   Error Message:", bgError.message);
+                console.log("   Full Error:", bgError);
             }
         })();
 
