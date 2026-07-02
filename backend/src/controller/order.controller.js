@@ -1,5 +1,8 @@
 const orderModel = require("../models/order.model");
 const sendEmail = require("../utils/sendEmail");
+const generateInvoicePDF = require("../utils/generateInvoice");
+const fs = require('fs');
+const path = require('path');
 function generateOTP() {
     return Math.floor(100000 + Math.random() * 900000).toString();
 }
@@ -179,4 +182,92 @@ async function deleteOrder(req,res){
     }
 }
 
-module.exports = { getOrderById, createOrder, getAllOrder, updateOrderStatus ,deleteOrder};
+async function downloadInvoice(req, res) {
+    try {
+        const { orderId } = req.params;
+        
+        console.log("\n📄 === DOWNLOAD INVOICE REQUESTED ===");
+        console.log("Order ID:", orderId);
+        console.log("User ID:", req.user._id);
+
+        // ✅ Fetch order
+        const order = await orderModel
+            .findById(orderId)
+            .populate('items.product', 'name price')
+            .populate('user', 'name email');
+
+        if (!order) {
+            return res.status(404).json({
+                success: false,
+                message: "Order not found"
+            });
+        }
+
+        // ✅ Verify user owns this order
+        if (order.user._id.toString() !== req.user._id.toString()) {
+            return res.status(403).json({
+                success: false,
+                message: "Unauthorized to download this invoice"
+            });
+        }
+
+        console.log("✅ Order found, generating PDF...");
+
+        // ✅ Generate PDF
+        const pdfResult = await generateInvoicePDF(order, order.user);
+
+        if (!pdfResult.success) {
+            return res.status(500).json({
+                success: false,
+                message: "Failed to generate invoice"
+            });
+        }
+
+        const filePath = pdfResult.filePath;
+
+        // ✅ Check if file exists
+        if (!fs.existsSync(filePath)) {
+            return res.status(500).json({
+                success: false,
+                message: "Invoice file not found"
+            });
+        }
+
+        // ✅ Set response headers for file download
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="invoice_${orderId}.pdf"`);
+
+        // ✅ Send file
+        const fileStream = fs.createReadStream(filePath);
+        fileStream.pipe(res);
+
+        // ✅ Clean up after sending
+        fileStream.on('end', () => {
+            console.log("✅ Invoice sent to user");
+            try {
+                fs.unlinkSync(filePath);
+                console.log("✅ Temporary PDF deleted");
+            } catch (err) {
+                console.log("⚠️  Could not delete temp file:", err.message);
+            }
+        });
+
+        fileStream.on('error', (err) => {
+            console.log("❌ Stream error:", err.message);
+            res.status(500).json({
+                success: false,
+                message: "Error downloading invoice"
+            });
+        });
+
+    } catch (error) {
+        console.log("❌ Download invoice error:", error.message);
+        res.status(500).json({
+            success: false,
+            message: "Server error",
+            error: error.message
+        });
+    }
+}
+
+module.exports = { getOrderById, createOrder, getAllOrder, updateOrderStatus, deleteOrder, downloadInvoice };
