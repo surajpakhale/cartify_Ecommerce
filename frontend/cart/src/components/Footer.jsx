@@ -19,7 +19,7 @@ const Footer = () => {
         gap: '20px'
       }}>
         <div>
-          <h3 style={{ color: '#f97316', marginBottom: '10px' }}>ShopNest</h3>
+          <h3 style={{ color: '#f97316', marginBottom: '10px' }}>Cartify</h3>
           <p style={{ color: '#a1a1aa', fontSize: '0.9rem' }}>Premium E-Commerce Platform.</p>
         </div>
         

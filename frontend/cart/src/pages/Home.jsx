@@ -25,7 +25,7 @@ const Home = () => {
   return (
     <div className="home-container">
       <div className="hero-banner">
-        <h1>Welcome to ShopNest</h1>
+        <h1>Welcome to Cartify</h1>
         <p>Discover the best products at unbeatable prices.</p>
       </div>
       <h2>Featured Products</h2>
