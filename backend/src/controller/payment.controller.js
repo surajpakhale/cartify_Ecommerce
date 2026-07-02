@@ -12,14 +12,18 @@ const razorpay = new Razorpay({
 // ✅ Helper function to send order confirmation email
 async function sendOrderConfirmationEmail(newOrder, userDetails, orderData) {
     try {
-        console.log("\n📧 === SENDING ORDER CONFIRMATION EMAIL ===");
-        console.log("Recipient:", userDetails?.email);
-        console.log("Order ID:", newOrder._id);
-
+        console.log("\n═══════════════════════════════════════════");
+        console.log("📧 SENDING ORDER CONFIRMATION EMAIL");
+        console.log("═══════════════════════════════════════════");
+        
         if (!userDetails?.email) {
-            console.log("❌ No email address found");
+            console.log("❌ No email address found for user");
             return false;
         }
+
+        console.log("👤 User:", userDetails?.name);
+        console.log("📧 Email:", userDetails?.email);
+        console.log("📦 Order ID:", newOrder._id);
 
         const itemsList = orderData?.items?.length > 0 
             ? orderData.items.map(item => 
@@ -78,24 +82,20 @@ async function sendOrderConfirmationEmail(newOrder, userDetails, orderData) {
 </html>
         `;
         
-        console.log("📤 Attempting email send...");
+        console.log("📬 Calling sendEmail function...");
         const emailResult = await sendEmail(
             userDetails.email,
             "Order Confirmation - Your Order Has Been Received",
             emailMessage
         );
         
-        if (emailResult) {
-            console.log("✅ Order confirmation email sent successfully!");
-        } else {
-            console.log("⚠️ Email sending returned false but no error thrown");
-        }
-        
-        console.log("📧 === EMAIL SENDING COMPLETE ===\n");
+        console.log("✅ sendEmail function returned:", emailResult);
+        console.log("═══════════════════════════════════════════\n");
         return emailResult;
 
     } catch (error) {
-        console.log("❌ Email sending error:", error.message);
+        console.log("❌ Email helper error:", error.message);
+        console.log("Error stack:", error.stack);
         return false;
     }
 }
@@ -132,6 +132,10 @@ async function createRazorpayOrder(req, res) {
 
 async function verifyPayment(req, res) {
     try {
+        console.log("\n🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵");
+        console.log("🔵 VERIFY PAYMENT ENDPOINT CALLED");
+        console.log("🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵\n");
+        
         const { 
             razorpay_order_id, 
             razorpay_payment_id, 
@@ -139,9 +143,12 @@ async function verifyPayment(req, res) {
             orderData
         } = req.body;
 
-        console.log("\n=== VERIFY PAYMENT START ===");
-        console.log("OrderData:", JSON.stringify(orderData, null, 2));
-        console.log("User ID:", req.user._id);
+        console.log("📝 Request Data:");
+        console.log("   Order ID:", razorpay_order_id ? "✅" : "❌");
+        console.log("   Payment ID:", razorpay_payment_id ? "✅" : "❌");
+        console.log("   Signature:", razorpay_signature ? "✅" : "❌");
+        console.log("   Order Data:", orderData ? "✅" : "❌");
+        console.log("   User ID:", req.user._id);
 
         // ✅ Use provided data or set defaults
         const items = orderData?.items || [];
@@ -154,6 +161,7 @@ async function verifyPayment(req, res) {
             country: 'Not Provided'
         };
 
+        console.log("\n💾 Creating Order in Database...");
         // ✅ Create order
         const newOrder = new orderModel({
             user: req.user._id,
@@ -168,38 +176,45 @@ async function verifyPayment(req, res) {
         });
 
         await newOrder.save();
-        console.log("✅ Order saved successfully:", newOrder._id);
+        console.log("✅ Order saved to database:", newOrder._id);
 
         // ✅ Fetch user details
+        console.log("\n👤 Fetching User Details...");
         let userDetails = null;
         try {
             userDetails = await userModel.findById(req.user._id);
-            console.log("👤 User details fetched:", {
-                id: userDetails?._id,
-                name: userDetails?.name,
-                email: userDetails?.email
-            });
+            console.log("✅ User fetched:");
+            console.log("   Name:", userDetails?.name);
+            console.log("   Email:", userDetails?.email);
         } catch (userErr) {
-            console.log("⚠️ Could not fetch user details:", userErr.message);
+            console.log("❌ Error fetching user:", userErr.message);
         }
 
         // ✅ Send email BEFORE responding
-        console.log("\n📧 Preparing to send email...");
+        console.log("\n📧 Initiating Email Sending Process...");
+        console.log("Calling sendOrderConfirmationEmail()...");
         const emailSent = await sendOrderConfirmationEmail(newOrder, userDetails, orderData);
-        console.log("Email sending result:", emailSent ? "✅ Success" : "⚠️ Failed");
+        console.log("Email result returned:", emailSent ? "✅ SUCCESS" : "❌ FAILED");
 
         // ✅ Send success response
-        return res.status(200).json({
+        console.log("\n📤 Sending Response to Frontend...");
+        const response = {
             success: true,
             message: "Order Placed Successfully! Check your email for confirmation.",
             order: newOrder,
             emailSent: emailSent
-        });
+        };
+        
+        res.status(200).json(response);
+        console.log("✅ Response sent to client\n");
+        console.log("🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢\n");
 
     } catch (error) {
-        console.log("\n=== VERIFY PAYMENT ERROR ===");
+        console.log("\n🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴");
+        console.log("🔴 VERIFY PAYMENT ERROR");
+        console.log("🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴\n");
         console.log("Error Message:", error.message);
-        console.log("Error Details:", error);
+        console.log("Error Stack:", error.stack);
 
         // ✅ Even on error, try to create a basic order
         try {
@@ -221,7 +236,7 @@ async function verifyPayment(req, res) {
             });
             
             await basicOrder.save();
-            console.log("✅ Basic order created despite error");
+            console.log("✅ Basic order created as fallback");
 
             return res.status(200).json({
                 success: true,
