@@ -2,7 +2,6 @@ require("dotenv").config();
 const express = require("express");
 const connectDB = require("./src/config/db");
 const cookieParser = require("cookie-parser");
-const cors = require("cors");
 
 const authRoutes = require("./src/router/auth.routes");
 const productRoutes = require("./src/router/product.routes");
@@ -13,21 +12,27 @@ const analyticsRoutes = require("./src/router/analytics.routes");
 connectDB();
 const app = express();
 
-// Ye sabse upar daal - Sab Vercel URLs allow
+// CORS Fix - Ye sabse upar rahega
 app.use((req, res, next) => {
+  const allowedOrigins = [
+    'http://localhost:5173',
+    'https://cartify-ecommerce-silk.vercel.app',
+    req.headers.origin // Jo bhi vercel ka preview URL ho
+  ];
+  
   const origin = req.headers.origin;
-  
-  // Local + Vercel ke saare URLs allow kar
-  if (!origin || origin.includes('localhost') || origin.endsWith('.vercel.app')) {
-    res.header('Access-Control-Allow-Origin', origin || '*');
-    res.header('Access-Control-Allow-Credentials', 'true');
-    res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Origin,X-Requested-With,Content-Type,Accept,Authorization');
+  if (allowedOrigins.includes(origin) || origin?.endsWith('.vercel.app')) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, Origin, X-Requested-With');
   }
-  
+
+  // Preflight request ka jawab
   if (req.method === 'OPTIONS') {
-    return res.sendStatus(200); // Preflight ka jawab
+    return res.status(200).end();
   }
+  
   next();
 });
 
@@ -40,7 +45,7 @@ app.get("/", (req, res) => {
 });
 
 app.use("/api/auth", authRoutes);
-app.use("/api/products", productRoutes); // Ye public hona chahiye
+app.use("/api/products", productRoutes); 
 app.use("/api/orders", orderRoutes);
 app.use("/api/payment", paymentRoutes);
 app.use("/api/analytics", analyticsRoutes);
