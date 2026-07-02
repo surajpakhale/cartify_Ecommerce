@@ -16,9 +16,11 @@ const app = express();
 // CORS - Local + Vercel dono ke liye
 app.use(cors({
   origin: [
-    'http://localhost:5173', 
-    'https://cartify-ecommerce-silk.vercel.app', // Tera frontend URL yahan daal
-    'https://cartify-ecommerce-iynrh17c4-suraj-pakhales-projects.vercel.app'
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'https://cartify-ecommerce-silk.vercel.app',
+    'https://cartify-ecommerce-573wg5jfg-suraj-pakhales-projects.vercel.app',
+    'https://cartify-ecommerce-ket4-drab.vercel.app'  // Ye line add kar
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
