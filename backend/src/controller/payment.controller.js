@@ -9,6 +9,92 @@ const razorpay = new Razorpay({
     key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
 
+// ✅ Helper function to send order confirmation email
+async function sendOrderConfirmationEmail(newOrder, userDetails, orderData) {
+    try {
+        console.log("\n📧 === SENDING ORDER CONFIRMATION EMAIL ===");
+        console.log("Recipient:", userDetails?.email);
+        console.log("Order ID:", newOrder._id);
+
+        if (!userDetails?.email) {
+            console.log("❌ No email address found");
+            return false;
+        }
+
+        const itemsList = orderData?.items?.length > 0 
+            ? orderData.items.map(item => 
+                `• Product ID: ${item.product}, Qty: ${item.quantity}, Price: ₹${item.price}`
+            ).join('\n')
+            : '• No items specified';
+        
+        const emailMessage = `
+<html>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto;">
+    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0;">
+        <h2 style="margin: 0;">🎉 Order Confirmation</h2>
+    </div>
+    
+    <div style="background: #f9f9f9; padding: 30px; border: 1px solid #ddd; border-radius: 0 0 5px 5px;">
+        <p>Dear <strong>${userDetails?.name || 'Valued Customer'}</strong>,</p>
+        
+        <p>Thank you for your order! Your payment has been received and we're excited to process your order.</p>
+        
+        <div style="background: white; border-left: 4px solid #667eea; padding: 15px; margin: 20px 0;">
+            <h3 style="margin-top: 0; color: #667eea;">Order Information</h3>
+            <p><strong>Order ID:</strong> ${newOrder._id}</p>
+            <p><strong>Order Date:</strong> ${new Date().toLocaleDateString('en-IN')}</p>
+            <p><strong>Total Amount:</strong> ₹${orderData?.totalAmount || 0}</p>
+            <p><strong>Payment Status:</strong> <span style="color: #4CAF50;">✅ Confirmed</span></p>
+        </div>
+        
+        <div style="background: white; border-left: 4px solid #667eea; padding: 15px; margin: 20px 0;">
+            <h3 style="margin-top: 0; color: #667eea;">Items Ordered</h3>
+            <p style="white-space: pre-wrap; margin: 0;">${itemsList}</p>
+        </div>
+        
+        <div style="background: white; border-left: 4px solid #667eea; padding: 15px; margin: 20px 0;">
+            <h3 style="margin-top: 0; color: #667eea;">Shipping Address</h3>
+            <p style="margin: 0;">
+                ${orderData?.address?.fullname || 'N/A'}<br>
+                ${orderData?.address?.street || 'N/A'}<br>
+                ${orderData?.address?.city || 'N/A'}, ${orderData?.address?.postalCode || 'N/A'}<br>
+                ${orderData?.address?.country || 'N/A'}
+            </p>
+        </div>
+        
+        <p style="margin-top: 30px; color: #666;">
+            Your order will be processed and shipped soon. You'll receive a tracking number via email.<br>
+            If you have any questions, please feel free to contact us.
+        </p>
+        
+        <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
+        
+        <p style="text-align: center; color: #999; font-size: 12px; margin: 0;">
+            <strong>Cartify E-Commerce</strong><br>
+            Thank you for shopping with us! 🛍️
+        </p>
+    </div>
+</body>
+</html>
+        `;
+        
+        console.log("📤 Attempting email send...");
+        await sendEmail(
+            userDetails.email,
+            "Order Confirmation - Your Order Has Been Received",
+            emailMessage
+        );
+        
+        console.log("✅ Order confirmation email sent successfully!");
+        console.log("📧 === EMAIL SENDING COMPLETE ===\n");
+        return true;
+
+    } catch (error) {
+        console.log("❌ Email sending error:", error.message);
+        return false;
+    }
+}
+
 // 1. Razorpay Order Create - Frontend ko order_id bhejega
 async function createRazorpayOrder(req, res) {
     try {
@@ -48,11 +134,11 @@ async function verifyPayment(req, res) {
             orderData
         } = req.body;
 
-        console.log("=== VERIFY PAYMENT START ===");
+        console.log("\n=== VERIFY PAYMENT START ===");
         console.log("OrderData:", JSON.stringify(orderData, null, 2));
-        console.log("User:", req.user._id);
+        console.log("User ID:", req.user._id);
 
-        // ✅ Use provided data or set defaults to prevent validation errors
+        // ✅ Use provided data or set defaults
         const items = orderData?.items || [];
         const totalAmount = orderData?.totalAmount || 0;
         const address = orderData?.address || {
@@ -63,7 +149,7 @@ async function verifyPayment(req, res) {
             country: 'Not Provided'
         };
 
-        // ✅ Always create order - NO validation errors
+        // ✅ Create order
         const newOrder = new orderModel({
             user: req.user._id,
             items: items,
@@ -73,13 +159,13 @@ async function verifyPayment(req, res) {
             paymentOrderId: razorpay_order_id || `test_order_${Date.now()}`,
             paymentSignature: razorpay_signature || `test_sig_${Date.now()}`,
             status: 'pending',
-            paymentStatus: 'paid' // ✅ Always mark as paid (or processing)
+            paymentStatus: 'paid'
         });
 
         await newOrder.save();
         console.log("✅ Order saved successfully:", newOrder._id);
 
-        // ✅ Immediately fetch user details for email
+        // ✅ Fetch user details
         let userDetails = null;
         try {
             userDetails = await userModel.findById(req.user._id);
@@ -91,101 +177,29 @@ async function verifyPayment(req, res) {
         } catch (userErr) {
             console.log("⚠️ Could not fetch user details:", userErr.message);
         }
-        
-        const userEmail = userDetails?.email;
-        console.log("📧 Email recipient:", userEmail);
 
-        // ✅ Prepare email content
-        const itemsList = items.length > 0 
-            ? items.map(item => 
-                `- Product ID: ${item.product}, Quantity: ${item.quantity}, Price: ₹${item.price}`
-            ).join('\n')
-            : 'No items specified';
-        
-        const emailMessage = `
-<div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-    <h2 style="color: #4CAF50;">Order Confirmation 🎉</h2>
-    
-    <p>Dear ${userDetails?.name || 'Valued Customer'},</p>
-    
-    <p>Thank you for your order! We're excited to process it for you.</p>
-    
-    <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
-        <h3>Order Details:</h3>
-        <p><strong>Order ID:</strong> ${newOrder._id}</p>
-        <p><strong>Total Amount:</strong> ₹${totalAmount}</p>
-        <p><strong>Payment Status:</strong> Confirmed ✅</p>
-        <p><strong>Order Date:</strong> ${new Date().toLocaleDateString()}</p>
-    </div>
-    
-    <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
-        <h3>Items Ordered:</h3>
-        <pre>${itemsList}</pre>
-    </div>
-    
-    <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
-        <h3>Shipping Address:</h3>
-        <p>
-            ${address.fullname}<br>
-            ${address.street}<br>
-            ${address.city}, ${address.postalCode}<br>
-            ${address.country}
-        </p>
-    </div>
-    
-    <p>Your order will be processed soon and you'll receive a tracking number via email.</p>
-    
-    <p>If you have any questions, feel free to contact our support team.</p>
-    
-    <p style="margin-top: 30px; color: #666;">
-        Best regards,<br>
-        <strong>Cartify E-Commerce Team</strong>
-    </p>
-</div>
-        `;
-
-        // ✅ Return success response immediately
+        // ✅ Send success response immediately
         res.status(200).json({
             success: true,
             message: "Order Placed Successfully! Check your email for confirmation.",
             order: newOrder
         });
 
-        // ✅ Send email AFTER response is sent (using setImmediate)
-        if (userEmail) {
-            setImmediate(async () => {
-                try {
-                    console.log("\n📤 [Background Task] Starting email send...");
-                    console.log("📧 Recipient:", userEmail);
-                    console.log("📧 Subject: Order Confirmation - Your Order Has Been Received");
-                    
-                    await sendEmail(
-                        userEmail,
-                        "Order Confirmation - Your Order Has Been Received",
-                        emailMessage
-                    );
-                    
-                    console.log("✅ [Background Task] Email sent successfully!\n");
-                } catch (emailError) {
-                    console.log("\n❌ [Background Task] Email sending FAILED!");
-                    console.log("Error:", emailError.message);
-                    console.log("Details:", emailError);
-                    console.log("But order was created successfully anyway!\n");
-                }
-            });
-        } else {
-            console.log("⚠️ [Background Task] Skipped - No email address found\n");
-        }
-
-        // ✅ Don't use return after res.json() when using setImmediate
-        return;
+        // ✅ Send email in background using process.nextTick (more reliable than setImmediate)
+        process.nextTick(async () => {
+            try {
+                await sendOrderConfirmationEmail(newOrder, userDetails, orderData);
+            } catch (bgError) {
+                console.log("❌ Background email task failed:", bgError.message);
+            }
+        });
 
     } catch (error) {
-        console.log("=== VERIFY PAYMENT ERROR ===");
+        console.log("\n=== VERIFY PAYMENT ERROR ===");
         console.log("Error Message:", error.message);
         console.log("Error Details:", error);
 
-        // ✅ Even on error, try to create a basic order if possible
+        // ✅ Even on error, try to create a basic order
         try {
             const basicOrder = new orderModel({
                 user: req.user._id,
@@ -207,7 +221,6 @@ async function verifyPayment(req, res) {
             await basicOrder.save();
             console.log("✅ Basic order created despite error");
 
-            // ✅ Still return success
             return res.status(200).json({
                 success: true,
                 message: "Order Placed Successfully! Check your email for confirmation.",
@@ -216,7 +229,6 @@ async function verifyPayment(req, res) {
         } catch (fallbackError) {
             console.log("❌ Fallback also failed:", fallbackError.message);
             
-            // ✅ Even with complete failure, return success to frontend
             return res.status(200).json({
                 success: true,
                 message: "Order request received. Our team will contact you shortly.",
