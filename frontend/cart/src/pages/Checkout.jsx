@@ -98,6 +98,8 @@ const Checkout = () => {
               alert("Payment Successful");
               dispatch(clearCart());
               const orderId = verifyRes.data.order?._id;
+              console.log("✅ Payment verified. Order ID:", orderId);
+              console.log("Full order response:", verifyRes.data.order);
               navigate('/ordersuccess', { state: { orderId } });
             }
           } catch (error) {

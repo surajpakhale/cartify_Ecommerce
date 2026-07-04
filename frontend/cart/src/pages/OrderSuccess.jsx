@@ -19,6 +19,8 @@ const OrderSuccess = () => {
     try {
       setDownloading(true);
       console.log("📥 Downloading invoice for order:", orderId);
+      console.log("API URL:", `/orders/invoice/${orderId}`);
+      console.log("Authorization header:", user.token ? "✅ Present" : "❌ Missing");
       
       const response = await api.get(`/orders/invoice/${orderId}`, {
         headers: { Authorization: `Bearer ${user.token}` },
@@ -39,7 +41,16 @@ const OrderSuccess = () => {
       console.log("✅ Invoice downloaded successfully");
     } catch (error) {
       console.error("❌ Error downloading invoice:", error);
-      alert("Failed to download invoice. Please try again from your profile.");
+      console.error("Error details:", {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        url: error.config?.url,
+        method: error.config?.method
+      });
+      const errorMsg = error.response?.data?.message || error.message || "Unknown error";
+      alert(`Failed to download invoice: ${errorMsg}\n\nPlease try again from your profile.`);
     } finally {
       setDownloading(false);
     }
@@ -59,11 +70,14 @@ const OrderSuccess = () => {
   React.useEffect(() => {
     if (orderId && user?.token && !invoiceDownloaded) {
       console.log("📄 Order Success - Order ID:", orderId);
+      console.log("User token:", user.token.substring(0, 20) + "...");
       // Auto download after a short delay to ensure page is ready
       const timer = setTimeout(() => {
         downloadInvoice();
       }, 1000);
       return () => clearTimeout(timer);
+    } else {
+      console.log("⚠️ Skipping auto-download:", { orderId, hasToken: !!user?.token, invoiceDownloaded });
     }
   }, [orderId, user?.token, invoiceDownloaded]);
 
