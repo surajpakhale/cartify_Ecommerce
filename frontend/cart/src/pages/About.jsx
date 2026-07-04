@@ -27,7 +27,7 @@ const About = () => {
   return (
     <div style={containerStyle}>
       <img
-        src="/suraj_image.jpg"
+        src="/suraj_image .jpg"
         alt="@surajpakhale"
         style={{ width: '180px', height: '180px', borderRadius: '50%', objectFit: 'cover', border: '4px solid #f97316', marginBottom: '20px', boxShadow: '0 4px 20px rgba(249, 115, 22, 0.4)' }}
       />
