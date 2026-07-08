@@ -19,10 +19,7 @@ const OrderSuccess = () => {
     try {
       setDownloading(true);
       console.log("📥 Downloading invoice for order:", orderId);
-      console.log("API URL:", `/orders/invoice/${orderId}`);
-      console.log("Authorization header:", user.token ? "✅ Present" : "❌ Missing");
-      
-      const response = await api.get(`/orders/invoice/${orderId}`, {
+      const response = await api.get(`/orders/download/${orderId}`, {
         headers: { Authorization: `Bearer ${user.token}` },
         responseType: 'blob'
       });

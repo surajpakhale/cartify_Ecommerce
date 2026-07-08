@@ -53,7 +53,7 @@ const Profile = () => {
       setDownloadingId(orderId);
       console.log("📥 Downloading invoice for order:", orderId);
       
-      const response = await api.get(`/orders/invoice/${orderId}`, {
+      const response = await api.get(`/orders/download/${orderId}`, {
         headers: { Authorization: `Bearer ${user.token}` },
         responseType: 'blob'
       });
