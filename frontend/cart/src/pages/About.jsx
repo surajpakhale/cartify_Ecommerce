@@ -48,7 +48,7 @@ Always learning. Always building.
         <a href="https://www.linkedin.com/in/suraj-pakhale-9a49b228a" target="_blank" rel="noreferrer" style={{ ...socialBtnStyle, background: 'rgba(59, 130, 246, 0.2)', borderColor: '#3b82f6', color: '#3b82f6' }}>💼 LinkedIn</a>
       
         <a href="https://github.com/surajpakhale" target="_blank" rel="noreferrer" style={socialBtnStyle}>🔗 Github</a>
-      </div>
+      </div> 
     </div>
   );
 };
