@@ -81,37 +81,24 @@ async function getAllOrder(req, res) {
 // }
 async function createOrder(req, res) {
     try {
-          
         const { items, totalAmount, address, paymentId, sendOtp } = req.body;
-        
+
         if (!items || items.length === 0 || !totalAmount || !address) {
-            return res.status(400).json({
-                message: "Items, totalAmount and address are required"
-            });
+            return res.status(400).json({ message: "Items, totalAmount, and address are required" });
         }
 
-        // Step 1: Agar sendOtp = true hai to sirf OTP bhejo
-        if (sendOtp === true) {
+        if (sendOtp) {
             const otp = generateOTP();
-            
-            // OTP ko temporarily store karne ke liye user ke session ya temp field use kar sakte
-            // Ya phir frontend me handle kar
             try {
-                const message = `Dear ${req.user.name}, \n\nYour OTP for order confirmation is: ${otp}\n\nThis OTP will expire in 5 minutes.\n\nShopNest Team`;
+                const message = `Dear ${req.user.name}, your OTP for order confirmation is: <strong>${otp}</strong>. This OTP will expire in 5 minutes.`;
                 await sendEmail(req.user.email, "Order Confirmation OTP", message);
-                
-                return res.status(200).json({
-                    success: true,
-                    message: "OTP sent to your email",
-                    otp: otp // ✅ Test ke liye bhej raha hu, production me mat bhejna
-                });
+                return res.status(200).json({ success: true, message: "OTP sent to your email", otp });
             } catch (emailError) {
-                console.log("Email error:", emailError.message);
+                console.log("Email error while sending OTP:", emailError.message);
                 return res.status(500).json({ message: "Error sending OTP" });
             }
         }
 
-        // Step 2: Order create karo
         const newOrder = new orderModel({
             user: req.user._id,
             items,
@@ -120,24 +107,53 @@ async function createOrder(req, res) {
             paymentId,
             status: 'pending'
         });
-        
+
         await newOrder.save();
-        
+
+        // --- Invoice Generation and Emailing ---
         try {
-            const message = `Dear ${req.user.name}, \n\nThank you for your order!\n\nOrder ID: ${newOrder._id}\nTotal Amount: ${totalAmount}\nShipping Address: ${address.street}, ${address.city}\n\nBest regards,\nShopNest Team`;
-            await sendEmail(req.user.email, "Order Created", message);
-        } catch (emailError) {
-            console.log("Email error:", emailError.message);
+            console.log(`🚀 Initiating post-order actions for Order ID: ${newOrder._id}`);
+            
+            // 1. Generate Invoice
+            const pdfResult = await generateInvoicePDF(newOrder, req.user);
+            
+            if (pdfResult.success) {
+                console.log(`✅ Invoice generated: ${pdfResult.fileName}`);
+
+                // 2. Prepare and Send Email with Attachment
+                const emailMessage = `Dear ${req.user.name},<br><br>Thank you for your order! Your invoice is attached.<br><br><strong>Order ID:</strong> ${newOrder._id}<br><strong>Total Amount:</strong> ${totalAmount}<br><strong>Shipping Address:</strong> ${address.street}, ${address.city}<br><br>Best regards,<br>ShopNest Team`;
+                
+                const attachments = [{
+                    filename: pdfResult.fileName,
+                    path: pdfResult.filePath,
+                    contentType: 'application/pdf'
+                }];
+
+                await sendEmail(req.user.email, `Order Confirmation & Invoice - #${newOrder._id}`, emailMessage, attachments);
+
+                // 3. Clean up the invoice file
+                fs.unlink(pdfResult.filePath, (err) => {
+                    if (err) {
+                        console.log(`⚠️  Failed to delete temporary invoice: ${err.message}`);
+                    } else {
+                        console.log(`✅ Temporary invoice deleted: ${pdfResult.fileName}`);
+                    }
+                });
+            }
+        } catch (postOrderError) {
+            console.log(`❌ Error during post-order invoice/email process for Order ID ${newOrder._id}:`, postOrderError.message);
+            // This error is logged but doesn't fail the entire order creation response
         }
-        
+        // --- End of Invoice ---
+
         res.status(201).json({
             message: "Order created successfully",
             order: newOrder
         });
 
     } catch (error) {
-        console.log("Message is :", error);
-        res.status(500).json({ message: "Server error", error: error.message });
+        console.log("❌ Create Order error:", error.message);
+        res.status(500).json({ message: "Server error during order creation." });
     }
 }
 
@@ -186,18 +202,18 @@ async function downloadInvoice(req, res) {
     try {
         const { orderId } = req.params;
         
-        console.log("\n📄 === DOWNLOAD INVOICE REQUESTED ===");
+        console.log("📄 === DOWNLOAD INVOICE REQUESTED ===");
         console.log("Order ID:", orderId);
-        console.log("User ID:", req.user._id);
+        console.log("User ID:", req.user?._id);
 
-        // ✅ Fetch order
+        // Fetch order
         const order = await orderModel
             .findById(orderId)
             .populate('items.product', 'name price')
             .populate('user', 'name email');
 
         if (!order) {
-            console.log("❌ Order not found");
+            console.log("❌ Order not found for ID:", orderId);
             return res.status(404).json({
                 success: false,
                 message: "Order not found"
@@ -206,13 +222,14 @@ async function downloadInvoice(req, res) {
 
         console.log("✅ Order fetched:", {
             id: order._id,
+            user: order.user?.name,
             itemsCount: order.items?.length,
             totalAmount: order.totalAmount
         });
 
-        // ✅ Verify user owns this order
-        if (order.user._id.toString() !== req.user._id.toString()) {
-            console.log("❌ Unauthorized - User mismatch");
+        // Verify user owns this order
+        if (order.user?._id.toString() !== req.user?._id.toString()) {
+            console.log("❌ Unauthorized - User mismatch. Order owner:", order.user?._id, "Request user:", req.user?._id);
             return res.status(403).json({
                 success: false,
                 message: "Unauthorized to download this invoice"
@@ -221,11 +238,11 @@ async function downloadInvoice(req, res) {
 
         console.log("✅ Authorization passed, generating PDF...");
 
-        // ✅ Generate PDF
+        // Generate PDF
         const pdfResult = await generateInvoicePDF(order, order.user);
 
         if (!pdfResult.success) {
-            console.log("❌ PDF generation failed");
+            console.log("❌ PDF generation failed for Order ID:", orderId);
             return res.status(500).json({
                 success: false,
                 message: "Failed to generate invoice"
@@ -235,53 +252,51 @@ async function downloadInvoice(req, res) {
         const filePath = pdfResult.filePath;
         console.log("✅ PDF generated at:", filePath);
 
-        // ✅ Check if file exists
+        // Check if file exists before sending
         if (!fs.existsSync(filePath)) {
             console.log("❌ PDF file does not exist at:", filePath);
             return res.status(500).json({
                 success: false,
-                message: "Invoice file not found"
+                message: "Invoice file not found on server"
             });
         }
 
-        console.log("✅ PDF file verified, sending to user...");
+        console.log("✅ PDF file verified, preparing to send to user...");
 
-        // ✅ Set response headers for file download
+        // Set response headers for file download
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename="invoice_${orderId}.pdf"`);
 
-        // ✅ Send file
+        // Send file and handle cleanup
         const fileStream = fs.createReadStream(filePath);
         fileStream.pipe(res);
 
-        // ✅ Clean up after sending
-        fileStream.on('end', () => {
-            console.log("✅ Invoice sent to user");
+        fileStream.on('finish', () => {
+            console.log("✅ Invoice sent successfully to user for Order ID:", orderId);
             try {
                 fs.unlinkSync(filePath);
-                console.log("✅ Temporary PDF deleted");
+                console.log("✅ Temporary PDF deleted:", filePath);
             } catch (err) {
-                console.log("⚠️  Could not delete temp file:", err.message);
+                console.log("⚠️  Could not delete temporary PDF file:", err.message);
             }
         });
 
         fileStream.on('error', (err) => {
-            console.log("❌ Stream error:", err.message);
+            console.log("❌ Stream error while sending invoice:", err.message);
             if (!res.headersSent) {
                 res.status(500).json({
                     success: false,
-                    message: "Error downloading invoice"
+                    message: "Error sending invoice file"
                 });
             }
         });
 
     } catch (error) {
         console.log("❌ Download invoice error:", error.message);
-        console.log("Stack:", error.stack);
+        console.log("Stack trace:", error.stack);
         res.status(500).json({
             success: false,
-            message: "Server error: " + error.message,
-            error: error.message
+            message: "An unexpected server error occurred. " + error.message,
         });
     }
 }

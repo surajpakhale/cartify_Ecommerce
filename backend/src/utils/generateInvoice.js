@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 async function generateInvoicePDF(order, userDetails) {
+    console.log(`🖨️  Generating invoice for Order ID: ${order._id}...`);
     return new Promise((resolve, reject) => {
         try {
             // Create a PDF document
@@ -70,7 +71,7 @@ async function generateInvoicePDF(order, userDetails) {
             doc.fontSize(9).font('Helvetica').fillColor('#333333');
             let itemY = startY + 30;
 
-            console.log("📦 Processing items for invoice:");
+            console.log(`📦 Processing items for invoice (Order ID: ${order._id}):`);
             (order.items || []).forEach((item, index) => {
                 try {
                     const productName = item.product?.name || item.productName || 'Product';
@@ -87,7 +88,7 @@ async function generateInvoicePDF(order, userDetails) {
 
                     itemY += rowHeight;
                 } catch (itemError) {
-                    console.log(`⚠️  Error processing item ${index}:`, itemError.message);
+                    console.log(`⚠️  Error processing item ${index} for Order ID ${order._id}:`, itemError.message);
                 }
             });
 
@@ -118,7 +119,7 @@ async function generateInvoicePDF(order, userDetails) {
 
             // Handle stream events
             stream.on('finish', () => {
-                console.log('✅ PDF Invoice created:', fileName);
+                console.log(`✅ PDF Invoice created for Order ID: ${order._id} -> ${fileName}`);
                 resolve({
                     success: true,
                     fileName: fileName,
@@ -127,17 +128,17 @@ async function generateInvoicePDF(order, userDetails) {
             });
 
             stream.on('error', (err) => {
-                console.log('❌ PDF Stream error:', err.message);
+                console.log(`❌ PDF Stream error for Order ID ${order._id}:`, err.message);
                 reject(err);
             });
 
             doc.on('error', (err) => {
-                console.log('❌ PDF Document error:', err.message);
+                console.log(`❌ PDF Document error for Order ID ${order._id}:`, err.message);
                 reject(err);
             });
 
         } catch (error) {
-            console.log('❌ PDF Generation error:', error.message);
+            console.log(`❌ PDF Generation error for Order ID ${order._id}:`, error.message);
             reject(error);
         }
     });
