@@ -15,7 +15,7 @@ async function generateInvoicePDF(order, userDetails) {
 
             // Generate unique filename
             const invoiceDir = os.tmpdir();
-            
+
             const fileName = `invoice_${order._id}_${Date.now()}.pdf`;
             const filePath = path.join(invoiceDir, fileName);
             const stream = fs.createWriteStream(filePath);
@@ -23,7 +23,7 @@ async function generateInvoicePDF(order, userDetails) {
             doc.pipe(stream);
 
             // Header
-            doc.fontSize(24).font('Helvetica-Bold').text('📦 INVOICE', { align: 'center' });
+            doc.fontSize(24).font('Helvetica-Bold').text('CARTIFY INVOICE', { align: 'center' });
             doc.moveDown(0.5);
             doc.fontSize(10).font('Helvetica').text('Cartify E-Commerce', { align: 'center' });
             doc.fontSize(9).fillColor('#666666').text('Your trusted online store', { align: 'center' });
