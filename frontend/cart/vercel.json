@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://cartify-ecommerce-573wg5jfg-suraj-pakhales-projects.vercel.app/api/:path*"
+      "destination": "https://cartify-ecommerce-suraj-pakhales-projects.vercel.app/api/:path*"
     },
     {
       "source": "/(.*)",
