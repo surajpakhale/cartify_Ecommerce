@@ -30,6 +30,7 @@ router.get("/test/myorders/", authMiddleware.authUser, async (req, res) => {
 
 // INVOICE DOWNLOAD ROUTE - Before parameterized routes
 router.get("/invoice/:orderId", authMiddleware.authUser, orderController.downloadInvoice)
+router.get("/download/:orderId", authMiddleware.authUser, orderController.downloadInvoice)
 
 // Parameterized routes - AFTER specific routes
 router.get("/:id", authMiddleware.authUser, orderController.getOrderById)

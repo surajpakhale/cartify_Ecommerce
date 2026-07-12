@@ -1,6 +1,7 @@
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 
 async function generateInvoicePDF(order, userDetails) {
     console.log(`🖨️  Generating invoice for Order ID: ${order._id}...`);
@@ -13,10 +14,7 @@ async function generateInvoicePDF(order, userDetails) {
             });
 
             // Generate unique filename
-            const invoiceDir = path.join(__dirname, '../../invoices');
-            if (!fs.existsSync(invoiceDir)) {
-                fs.mkdirSync(invoiceDir, { recursive: true });
-            }
+            const invoiceDir = os.tmpdir();
             
             const fileName = `invoice_${order._id}_${Date.now()}.pdf`;
             const filePath = path.join(invoiceDir, fileName);
